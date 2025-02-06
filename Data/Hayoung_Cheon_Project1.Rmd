@@ -1,0 +1,256 @@
+---
+title: "Hospital Duration EDA"
+author: "Hayoung Cheon"
+date: "2025-02-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the data
+```{r}
+setwd("C:/Users/oyunm/Desktop/SMU/DS-6372-Applied-Statistics/Project 1/Hospital-Durations-Project")
+hospital <- read.csv("HospitalDurations.csv");
+
+head(hospital)
+summary(hospital)
+str(hospital)
+
+nrow(hospital)
+```
+
+## DATA Description
+There are `113` observations in the data.  
+There are 12 variables in total. Except for hospital ID which doesn't have any meaning as a predictor, There are 9 numerical variables and 2 categorical variables.
+The response variable is Lengh of stay, `Lgth.of.sty`. The average Length of Stay (Lgth of Sty) is around 9.65 days, ranging from 6.7 to 19.56 days.  
+| Numerical Variable | Caegorical Variable |
+|--------------------|---------------------|
+| Length of Stay     | Medical School Affiliation(1=Yes, 2=No)  |
+| Infecion risk      | Region(1=NE, 2=NC, 3=S, 4=W )  | 
+| Routine culturing ratio|                  |
+| Routine chest X-ray ratio|                  |
+| Number of beds     |                  |
+| Average Daily census|                  |
+| Number of nurses   |                  |
+| Available facilies |                  |
+
+
+
+# Check for missing data
+No missing DATA?
+```{r}
+library(naniar)
+vis_miss(hospital)
+```
+
+# boxplots for each variables
+```{r}
+library(ggplot2)
+
+# Create a loop that displays all variables of boxplots except for ID.
+for (i in 2:12) {
+  # Ensure the column index is valid
+  if (i <= ncol(hospital)) {
+    p <- ggplot(hospital, aes(x = "", y = hospital[[i]])) + 
+      geom_boxplot() + 
+      labs(y = colnames(hospital)[i], x = "") +
+      ggtitle(paste("Boxplot of", colnames(hospital)[i])) +
+      theme_minimal()
+    
+    print(p)
+  }
+}
+
+
+```
+
+# Scatter plot of Length of stay vs. all other numerical predictors.
+```{r}
+# Create a data set that dropped categorical variables and ID
+hospital2 <- hospital[, -c(8, 9)]
+summary(hospital2)
+
+# Create a loop that displays all variables of boxplots except for ID.
+for (i in 2:10) {
+  # Ensure the column index is valid
+  if (i <= ncol(hospital2)) {
+    p <- ggplot(hospital2, aes(x = hospital2[[i]], y = hospital2$Lgth.of.Sty )) + 
+      geom_point() + 
+      labs(x = colnames(hospital2)[i], y = "Length of Stay") +
+      ggtitle(paste("a scatterplot of", colnames(hospital2)[i])) +
+      theme_minimal()
+    
+    print(p) 
+  }
+}
+
+```
+
+# Boxplot of Length of stay vs. categorical variables.
+1) Med.Sc.Aff vs Lgth.of.sty: hospitals tha doesn't have medical school affiliation has a lower mean of length of stay. However, there are only 17 count for medical school affiliation and 96 that doesn't have medical school affiliation.
+2) 
+```{r}
+#Med.Sc.Aff vs Lgth.of.Sty
+ggplot(hospital, aes(x = as.factor(Med.Sc.Aff), y = Lgth.of.Sty, fill = as.factor(Med.Sc.Aff))) +
+  geom_boxplot() +
+  labs(x = "Medical School Affiliation", 
+       y = "Length of Stay", 
+       title = "A Boxplot of Medical School Affiliation vs Length of Stay") +
+  theme_classic()
+
+
+table(hospital$Med.Sc.Aff)
+
+#Region vs Lgth.of.Sty
+ggplot(hospital, aes(x = as.factor(Region), y = Lgth.of.Sty, fill = as.factor(Region))) +
+  geom_boxplot() +
+  labs(x = "Region", 
+       y = "Length of Stay", 
+       title = "A Boxplot of Region vs Length of Stay") +
+  theme_classic()
+
+
+table(hospital$Region)
+
+```
+
+# ggpair to check correlation and multicollinearity
+```{r}
+library(GGally)
+ggpairs(hospital)
+```
+
+# Correlation matrix
+The Infection Risk has the highest correlation with Length of stay, Region the next, Average Daily Census, then Rouine chest x-ray ratio.
+Among variables, 
+- `Avg.Pat`&`Avg.Nur`&`Pc.Ser.Fac` are highly correlated.
+- `N.Beds` & `Avg.pat` & `Avg.Nur` are highly correlated.
+
+```{r}
+library(ggcorrplot)
+
+# Compute correlation matrix
+cor_matrix <- cor(hospital[, sapply(hospital, is.numeric)], use = "complete.obs")
+
+# Plot using ggcorrplot
+ggcorrplot(cor_matrix, 
+           method = "square", 
+           type = "lower",
+           lab = TRUE, 
+           lab_size = 3, 
+           colors = c("blue", "white", "red"),
+           title = "Correlation Matrix of Hospital Data",
+           ggtheme = theme_minimal())
+
+```
+
+# Residual plots for each plot.
+Inf.Risk has constant variance issue?
+`Inf.Risk`
+`R.CX.ray.Rat`
+`Avg.Nur`
+
+Influential point: 112 or 47
+
+```{r}
+
+for (i in 2:12) {
+  # Ensure the column index is valid
+  if (i <= ncol(hospital)) {
+   model <- lm(Lgth.of.Sty ~ hospital[[i]], data=hospital)
+   par(mfrow=c(2,2))
+   p <- plot(model)
+  
+  }
+}
+```
+
+# Find detail of Influential point of 112 and 47
+```{r}
+hospital[112,]
+hospital[47,]
+
+```
+
+# Objective 1
+## EDA for each variable that is related to Infection Risk term vs. Lght.of.Sty
+### A scatterplot of Infection Risk vs Length of Stay
+```{r}
+library(ggplot2)
+# EDA for each variable that is related to Infection Risk term vs. Lght.of.Sty
+ggplot(hospital, aes(x = Inf.Risk, y = hospital$Lgth.of.Sty )) + 
+      geom_point() + 
+      labs(x = "Infection Risk", y = "Length of Stay") +
+      ggtitle("A scattor plot of infection risk vs Length of Stay") +
+      theme_minimal()
+
+```
+
+The scatterplot of Infection Risk vs Length of STay is showing positive relationship. Slightly we could see that as infection Risk is getting high, the length of stay gets longer. Some plots are more clustered in lower risk. might need to consider transform later in the predictive model.
+
+### A scatterplot of Routine culture ratio vs Length of Stay
+```{r}
+library(ggplot2)
+# EDA for each variable that is related to Infection Risk term vs. Lght.of.Sty
+ggplot(hospital, aes(x = R.Cul.Rat, y = hospital$Lgth.of.Sty )) + 
+      geom_point() + 
+      labs(x = "routine culture ratio", y = "Length of Stay") +
+      ggtitle("A scattor plot of infection risk vs Length of Stay") +
+      theme_minimal()
+```
+
+**We might want to consider:**
+Higher routine culturing may indicate a hospital's proactive approach in preventing infections.
+It might be associated with infection control policies, hospital protocols, or overuse of tests.
+If R.Cul.Rat is not significantly associated with hospital stay length, it suggests routine culturing itself does not impact hospitalization duration.
+
+It is clustered in (0-20) range. We can see some positivity. But since there are some outliers, we have to see if there are some influential points.
+
+
+### A scatterplot of R.CX.ray.Rat vs. Length of stay
+```{r}
+library(ggplot2)
+# EDA for each variable that is related to Infection Risk term vs. Lght.of.Sty
+ggplot(hospital, aes(x = R.CX.ray.Rat, y = hospital$Lgth.of.Sty )) + 
+      geom_point() + 
+      labs(x = "routine of x-Ray ratio", y = "Length of Stay") +
+      ggtitle("A scattor plot of Routine of X-Ray ratio vs Length of Stay") +
+      theme_minimal()
+```
+
+There are some three influential point, but most of all are well scattered. This might be a good fit for linear regression.
+
+## 2. will fit the model
+```{r}
+
+model1 <- lm(hospital$Lgth.of.Sty ~  Age + Inf.Risk + R.Cul.Rat + R.CX.ray.Rat + N.Beds + Med.Sc.Aff + Region + Avg.Pat + Avg.Nur + Pct.Ser.Fac, data = hospital )
+```
+
+## 3. Check the residual for the assumptions.
+For the multi-linear Regresson, there are three assumptions.
+1. Normalization: According to the Q-Q Residuals we can confirm that the plots are mostly normalized. Although we are seeing some of the outliers, as we can see in REsiduals vs Leverage, they are all inside the cooks distance.
+2. Constant Variance: In the Residuals vs Fitted plots, we could see that most of the plots are evenly scattered around red line, which is placed at 0 value. It's not showing any funnel shape which will be a violatino of constant variance.
+3. Independent Observation: ?? Discuss with team.
+```{r}
+par(mfrow=c(2,2))
+plot(model1)
+par(mfrow=c(1,1))
+```
+## 4. Fit the model and see the result
+```{r}
+summary(model1)
+```
+### Conclusion
+
+
+
+
+# Objective 2: Build a model of parametric and non-parametric
+
+## Creating the model based on the EDA
+```{r}
+model1 <- lm(hospital$Lgth.of.Sty ~  Age + poly(Inf.Risk,4) + log(R.Cul.Rat) + R.CX.ray.Rat + N.Beds + Med.Sc.Aff + Region + Avg.Pat + Avg.Nur + poly(Pct.Ser.Fac,4), data = hospital )
+```
+
