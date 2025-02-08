@@ -1,0 +1,159 @@
+---
+title: "Applied Stats project 1"
+author: "Payden Bullis"
+date: "2025-02-02"
+output: html_document
+---
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+hospitaldataoriginal <- read.csv("C:\\Users\\payde\\Desktop\\Homework and data sets\\HospitalDurations.csv")
+
+#na explore 
+sum(is.na(hospitaldata))
+#no NA's found.
+
+```
+
+##Plots with color palette
+```{r}
+library(GGally)
+hosp_color <- c("#609175", "#21295C", "#1B3B6F", "#6F7273", "#DCEDFF")
+
+ggpairs(hospitaldata,
+        title = "Correlation Scatterplot Matrix",
+        lower = list(continuous = wrap("smooth", color = hosp_color[1])), # Apply custom color to lower panels
+        diag = list(continuous = wrap("densityDiag", fill = hosp_color[2])), # Apply custom color to diagonal panels
+        upper = list(continuous = wrap("cor", color = hosp_color[3]))) # Apply custom color to upper panels
+```
+EDA continued
+```{r}
+#troubleshoot column issues
+str(hospitaldata[, c(7,13,14,15)])
+# Convert columns to numeric if necessary
+hospitaldata[, c(7,13,14,15)] <- lapply(hospitaldata[, c(7,13,14,15)], function(x) as.numeric(as.character(x)))
+
+ggpairs(hospitaldata,
+        columns = c(7,13,14,15),
+        title = "Correlation Scatterplot Matrix",
+        lower = list(continuous = wrap("smooth", color = hosp_color[1])), # Apply custom color to lower panels
+        diag = list(continuous = wrap("densityDiag", fill = hosp_color[2])), # Apply custom color to diagonal panels
+        upper = list(continuous = wrap("cor", color = hosp_color[3]))) # Apply custom color to upper panels
+#we can see there are different risk profiles based on region
+#exploratory chart with interaction terms
+library(ggplot2)
+
+# Convert Region to factor
+hospitaldataoriginal$Region <- as.factor(hospitaldataoriginal$Region)
+
+ggplot(hospitaldataoriginal, aes(x=Inf.Risk, y=Lgth.of.Sty, color=Region)) +
+  geom_point(size=3) +
+  labs(title="Regional difference by Infection Risk and Length of Stay with Regions Separated by Color",
+       x="Infection Risk", y="Length of Stay - in days") +
+  scale_color_manual(values = c("4" = "#1A2820", "3" = "#387DEC", "2" = "#95E2B7", "1" = "#1B3B6F"),
+labels = c("4" = "West", "3" = "South", "2" = "North Central", "1" = "Northeast"))
+
+#further exploration 
+ggplot(hospitaldataoriginal, aes(x=R.Cul.Rat, y=R.CX.ray.Rat, color=Region)) +
+  geom_point(size=4) +
+  labs(title="Regional difference by Culture rates with Regions Separated by Color",
+       x="Culture Rater", y="XRay Rates") +
+  scale_color_manual(values = c("4" = "#1A2820", "3" = "#387DEC", "2" = "#95E2B7", "1" = "#1B3B6F"),
+                     labels = c("4" = "West", "3" = "South", "2" = "North Central", "1" = "Northeast"))
+
+#risk factors by region
+ggplot(hospitaldataoriginal, aes(x=factor(Region), y=Age, fill=Region)) +
+  geom_boxplot() +
+  labs(title="Regional difference in Average Age with Regions Separated by Color",
+       x="Region", y="Average Age") +
+  scale_fill_manual(values = c("4" = "#1A2820", "3" = "#387DEC", "2" = "#95E2B7", "1" = "#1B3B6F"),
+                    labels = c("4" = "West", "3" = "South", "2" = "North Central", "1" = "Northeast"))
+
+ggplot(hospitaldataoriginal, aes(x=factor(Region), y=N.Beds, fill=Region)) +
+  geom_boxplot() +
+  labs(title="Regional difference in Average Number of Beds with Regions Separated by Color",
+       x="Region", y="Number of Beds") +
+  scale_fill_manual(values = c("4" = "#1A2820", "3" = "#387DEC", "2" = "#95E2B7", "1" = "#1B3B6F"),
+                    labels = c("4" = "West", "3" = "South", "2" = "North Central", "1" = "Northeast"))
+#reviewing the data of the correlations we see that typically there is an association of more patients and more beds with medical school 
+#SW appears to have a longer stay and infection risk
+#W has the lowest infection risk
+
+#need help with data wrangling for nures ratio. 
+#create new variable Nurse/patient ratio to reflect number of nurse to patients to address collinearity and possible lapses in coverage. 
+
+hospitaldatanurseratio$Region <- as.factor(hospitaldatanurseratio$Region)
+
+ggplot(hospitaldatanurseratio, aes(x = nurse.to.patient.ratio, y = Lgth.of.Sty, color=Region)) +
+  geom_point(size=4) +
+  labs(title="Regional difference by Nurse Ration with Regions Separated by Color",
+       x="Nurse to Patient Ratio", y="Length of Stay in Days") +
+  scale_color_manual(values = c("4" = "#1A2820", "3" = "#387DEC", "2" = "#95E2B7", "1" = "#1B3B6F"),
+                     labels = c("4" = "West", "3" = "South", "2" = "North Central", "1" = "Northeast"))
+
+nurse_ratio_model <- lm(Lgth.of.Sty ~ Age + Inf.Risk + Region + Pct.Ser.Fac + nurse.to.patient.ratio, data =hospitaldatanurseratio)
+summary(nurse_ratio_model)
+```
+
+```{r}
+#Model Building and Correlation - objective 1
+hospitaldataoriginal$Region <- factor(hospitaldataoriginal$Region)
+hospitaldataoriginal$Med.Sc.Aff <- factor(hospitaldataoriginal$Med.Sc.Aff)
+model <- lm(Lgth.of.Sty ~ Inf.Risk + R.Cul.Rat + R.CX.ray.Rat + Age +N.Beds + Med.Sc.Aff + Region + Avg.Pat + Avg.Nur + Pct.Ser.Fac, data =hospitaldataoriginal)
+summary(model)
+
+modellog <- lm(Lgth.of.Sty ~ Inf.Risk + R.Cul.Rat + R.CX.ray.Rat + Age +N.Beds + Med.Sc.Aff + Region + Avg.Pat + Avg.Nur + Pct.Ser.Fac, data =hospitaldataoriginal)
+summary(modellog)
+#residual plot
+par(mfrow=c(2,2))
+plot(model) #how to add color on this plot format? 
+par(mfrow=c(1,1))
+
+```
+
+```{r}
+#model building objective 2
+# full model
+library(caret)
+
+#All not transform
+# Set up the K-fold cross-validation
+train_control <- trainControl(method = "cv", number = 10)  # 10-fold cross-validation
+# Train the model using K-fold cross-validation
+model <- train(Lgth.of.Sty ~ ., data = hospitaldataoriginal, method = "lm", trControl = train_control)
+# Print the results
+print(model)
+
+
+#complex
+# Set up the K-fold cross-validation
+train_control <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation due to data size
+# Train the model using K-fold cross-validation
+complexMLR <- train(log(Lgth.of.Sty) ~ Age +Inf.Risk  + log(R.Cul.Rat) + R.CX.ray.Rat + log(N.Beds) + Pct.Ser.Fac + Region + Med.Sc.Aff, 
+                 data = hospitaldataoriginal, method = "lm", trControl = train_control)
+# Print the results
+print(complexMLR)
+
+#KNN
+hospitaldataoriginal = subset(hospitaldataoriginal, select = -c(ID))
+                      
+set.seed(123)
+splitPerc = .7
+trainIndices = sample(1:dim(hospitaldataoriginal)[1],round(splitPerc * dim(hospitaldataoriginal)[1]))
+train = hospitaldataoriginal[trainIndices,]
+test = hospitaldataoriginal[-trainIndices,]
+#fitControl<-trainControl(method="repeatedcv",number=10,repeats=1) 
+knn.fit<-train(Lgth.of.Sty~.,
+                  data=hospitaldataoriginal,
+                  method="knn",
+                  trControl=fitControl,
+                  tuneGrid=expand.grid(k=c(1:30)))
+knn.fit
+knn.fit$results
+knn.fit$finalModel$k 
+```
